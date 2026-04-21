@@ -1,13 +1,7 @@
 export default async function handler(req, res) {
-  // Solo acepta POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
-
-  // Cabeceras CORS para que tu HTML pueda llamarlo
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   try {
     const { messages, system, max_tokens } = req.body;
@@ -16,7 +10,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY, // ← key secreta, nunca visible
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -29,13 +23,28 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    if (data.error) {
-      return res.status(400).json({ error: data.error.message });
+    // 🔴 DEBUG REAL DE ERRORES
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error || 'Error en Anthropic',
+        full: data
+      });
     }
 
-    return res.status(200).json({ text: data.content[0].text });
+    if (!data.content || !data.content[0]) {
+      return res.status(500).json({
+        error: 'Respuesta inválida de Claude',
+        full: data
+      });
+    }
+
+    return res.status(200).json({
+      text: data.content[0].text
+    });
 
   } catch (error) {
-    return res.status(500).json({ error: 'Error interno: ' + error.message });
+    return res.status(500).json({
+      error: error.message
+    });
   }
 }
